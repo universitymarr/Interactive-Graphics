@@ -1,8 +1,19 @@
 # Interactive-Graphics 
 
-Here you can find the two homework carried out in the year 2019 - 2020
+|   | Available | Last Update |
+| ------------- | ------------- | ------------ |
+| Exams | No |
+| Homework  | Yes  | 2020 |
+| Notes  | No  | | |
+| Slides | No | | |
 
-## Homework 1
+## Homework
+
+| Author |  Last Update | 
+|--------| ------------ | 
+| [Sveva Pepe](https://github.com/pepes97) | 2020 | 
+
+### Homework 1
 
 1. Replace the cube with a more complex and irregular geometry of 20 to 30 (maximum) vertices.
 Each vertex should have associated a normal (3 or 4 coordinates) and a texture coordinate (2
@@ -27,7 +38,7 @@ computed using the lighting model and the texture. Add a button that activates/d
 texture.
 
 
-## Homework 2
+### Homework 2
 
 1. Create a hierarchical model of a (simplified) Grizzly bear
     + body
