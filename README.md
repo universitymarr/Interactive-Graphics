@@ -5,7 +5,7 @@
 | Exams | No |
 | Homework  | Yes  | 2020 |
 | Notes  | No  | | |
-| Slides | No | | |
+| Slides | Yes | 2020 |
 
 ## Homework1, Homework 2
 
