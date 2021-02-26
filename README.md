@@ -1,4 +1,4 @@
-# Interactive-Graphics 
+# Interactive Graphics 
 
 |   | Available | Last Update |
 | ------------- | ------------- | ------------ |
