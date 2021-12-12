@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html>
+<body>
+
+  
+<div>
+    zNear 
+    .01
+    <input id="zNearSlider" type="range" min=".01" max="3" step="0.1" value="0.3" />
+    3
+</div>
+
+<div>
+    zFar 
+    3
+    <input id="zFarSlider" type="range"min="3" max="10.0" step="1.0" value="5.0" />
+    10
+</div>
+
+<div>
+    radius
+    0.05
+    <input id="radiusSlider" type="range" min="0.05" max="10" step="0.1" value="4" />
+    10
+</div>
+
+<div>
+    theta 
+    -90
+    <input id="thetaSlider" type="range" min="-90" max="90" step="5" value="0" />
+    90
+</div>
+
+<div>
+    phi 
+    -90
+    <input id="phiSlider" type="range" min="-90" max="90" step="5" value="0" />
+    90
+</div>
+
+<div>
+    fov 
+    10
+    <input id="fovSlider" type="range" min="10" max="120" step="5" value="45" />
+    120
+</div>
+
+<div>
+    aspect 
+    0.5
+    <input id="aspectSlider" type="range" min="0.5" max="2" step="0.1" value="1" />
+    2
+</div>
+
+
+<button id = "ButtonX">Rotate X</button>
+<button id = "ButtonY">Rotate Y</button>
+<button id = "ButtonZ">Rotate Z</button>
+<button id = "ButtonT">Toggle Rotation</button>
+<button id = "ButtonD">Toggle Direction</button>
+
+<button id = "Button_light">Toggle Light</button>
+
+<button id = "Button_Toggle_shading">Per-Vertex/Per-Fragment</button>
+
+<div id = "mode_label"> PER-VERTEX </div>
+
+
+<canvas id="gl-canvas" width="512" height="512"></canvas>
+
+<!-- PER VERTEX SHADING #################################################################-->
+
+    <!-- USB -------------------------------------------------------------------------- -->
+    <script id="vertex-shader_USB_per_vert" type="x-shader/x-vertex">
+        #version 300 es
+
+        in vec2 aTexCoord;
+        out vec2 vTexCoord;
+
+        in  vec4 aPosition;
+        in  vec3 aNormal;
+        
+        out vec4 vColor;
+
+        uniform mat4 uModelViewMatrix;
+        uniform mat4 uProjectionMatrix;
+
+        // LIGHT --------------------------------------------------------------------------
+        uniform vec4 uAmbientProduct, uDiffuseProduct, uSpecularProduct;
+
+        // light position is already in eye coordinates
+        uniform vec4 uLightPosition_1;
+        uniform vec4 uLightPosition_2;
+        uniform vec4 uLightPosition_3;
+
+        uniform float uShininess;
+        uniform float uLightState;
+
+        vec4 diffuse_specular_components(vec3 pos, vec3 light_pos, vec3 N);
+        //-------------------------------------------------------------------------------
+        
+        void main(){
+            // position of vertex in eye coordinates
+            vec3 pos = (uModelViewMatrix * aPosition).xyz;
+
+            // normal of vertex in eye coordinates
+            vec4 NN = vec4(aNormal,0);
+            vec3 N = normalize((uModelViewMatrix*NN).xyz);
+
+            vec4 light_1;
+            vec4 light_2;
+            vec4 light_3;
+
+            vec4 lights;
+
+            if(uLightState == 0.0){ //turn off the light
+                lights=vec4(0.0,0.0,0.0,1.0);
+            }
+            else{ // turn ON
+                light_1 = diffuse_specular_components(pos, uLightPosition_1.xyz, N);
+                light_2 = diffuse_specular_components(pos, uLightPosition_2.xyz, N);
+                light_3 = diffuse_specular_components(pos, uLightPosition_3.xyz, N);
+    
+                lights = light_1 + light_2 + light_3;
+            }
+
+            //ambient
+            vec4 ambient = uAmbientProduct;
+
+            vColor = ambient + lights; // color computed here (inside vertex shader)
+            vColor.a = 1.0;
+
+            gl_Position = uProjectionMatrix * uModelViewMatrix *aPosition;
+            vTexCoord = aTexCoord;
+        }
+
+        // compute diffuse and specular components of a single light
+        vec4 diffuse_specular_components(vec3 pos, vec3 light_pos, vec3 N){
+            vec3 L;
+            vec3 E;
+            vec3 H;
+            float Kd;
+            float Ks;
+            vec4  diffuse;
+            vec4 specular;
+
+            // light_pos is already in eye coordinates
+
+            // vector from light source and the vertex
+            L = normalize(light_pos - pos);
+
+            // vector from eye position to vertex's position
+            // since we are in eye coordinates eye=0,0,0
+            E = normalize(-pos);
+            
+            //halfway vector
+            H = normalize(L + E);
+
+            //diffuse
+            Kd = max(dot(L, N), 0.0);
+            diffuse = Kd*uDiffuseProduct;
+
+            //specular
+            Ks = pow(max(dot(N, H), 0.0), uShininess );
+            specular = Ks * uSpecularProduct;
+
+            // back face 
+            if( dot(L, N) < 0.0 ) {specular = vec4(0.0, 0.0, 0.0, 1.0);}
+
+            return diffuse + specular;
+        }
+    </script>
+
+    <script id="fragment-shader_USB_per_vert" type="x-shader/x-fragment">
+        #version 300 es
+        precision mediump float;
+
+        uniform sampler2D uTextureMap;
+        in vec2 vTexCoord;
+
+        in vec4 vColor;
+        out vec4 fColor;
+
+        void main(){
+            fColor = vColor + texture(uTextureMap, vTexCoord);
+        }
+    </script>
+    <!-- ------------------------------------------------------------------------------ -->
+
+    <!-- NEON -------------------------------------------------------------------------- -->
+    <script id="vertex-shader_NEON_per_vert" type="x-shader/x-vertex">
+        #version 300 es
+        in vec2 aTexCoord;
+        
+
+        in vec4 aPosition;
+        out vec4 vColor;
+
+        uniform vec4 uAmbientProduct;
+
+        uniform mat4 uModelViewMatrix;
+        uniform mat4 uProjectionMatrix;
+
+        // LIGHTS ------------------------------------------------------------------------------
+        uniform vec4 uLightPosition;
+
+        uniform float ul1;
+        uniform float ul2;
+        uniform float ul3;
+
+        uniform float uLightState;
+        // -------------------------------------------------------------------------------------
+
+        vec4 compute_emissive(vec4 pos);
+
+        void main(){
+            gl_Position = uProjectionMatrix * uModelViewMatrix *aPosition;
+
+            vec4 ambient = uAmbientProduct;
+            vec4 emissive =  compute_emissive(aPosition);
+
+            // turn off the light
+            if(uLightState==0.0){emissive = vec4(0.0,0.0,0.0,1);}
+            
+            vColor = emissive + ambient;
+        }
+
+        // emissive term depens on the distance of the vertex respect to
+        // the positions of each light
+        vec4 compute_emissive(vec4 pos){
+            float x = pos[2];
+
+            float d1 = abs(x-ul1);
+            float c1 = -pow(d1, 0.5) +1.0;
+
+            float d2 = abs(x-ul2);
+            float c2 = -pow(d2, 0.5) +1.0;
+
+            float d3 = abs(x-ul3);
+            float c3 = -pow(d3, 0.5) +1.0;
+
+            float c= c1+c2+c3; // finale color
+
+            return vec4(c,c,c,1); //white light
+        }
+    </script>
+
+    <script id="fragment-shader_NEON_per_vert" type="x-shader/x-fragment">
+        #version 300 es
+        precision mediump float;
+
+        in vec4 vColor;
+        out vec4 fColor;
+
+        void main(){
+            fColor = vColor;
+        }
+    </script>
+    <!--------------------------------------------------------------------------- -->
+<!-- #############################################################################-->
+
+<!-- PER FRAGMENT SHADING ############################################################-->
+
+    <!-- USB -------------------------------------------------------------------------- -->
+    <script id="vertex-shader_USB_per_frag" type="x-shader/x-vertex">
+        #version 300 es
+        in vec4 aPosition;
+        in vec3 aNormal;
+
+        in vec2 aTexCoord;
+        out vec2 vTexCoord;
+
+        // output used to compute the shading inside the fragment shader
+        out vec3 N;
+        out vec3 E;
+
+        out vec3 L1;
+        out vec3 L2;
+        out vec3 L3;
+
+        
+        uniform mat4 uModelViewMatrix;
+        uniform mat4 uProjectionMatrix;
+
+        // light position in eye coordinates
+        uniform vec4 uLightPosition_1;
+        uniform vec4 uLightPosition_2;
+        uniform vec4 uLightPosition_3;
+
+        void main(){
+            // position of vertex in eye coordinates
+            vec3 pos = (uModelViewMatrix * aPosition).xyz;
+
+            // normal of vertex in eye coordinates
+            vec4 NN = vec4(aNormal,0);
+            N = normalize((uModelViewMatrix*NN).xyz);
+
+            // vector from eye position to vertex's position
+            // since we are in eye coordinates eye=0,0,0
+            E = normalize(-pos);
+
+            //light 1
+            // vector from light source and the vertex
+            L1 = normalize(uLightPosition_1.xyz - pos);
+
+            //light 2
+            // vector from light source and the vertex
+            L2 = normalize(uLightPosition_2.xyz - pos);
+
+            //light 3
+            // vector from light source and the vertex
+            L3 = normalize(uLightPosition_3.xyz - pos);
+            
+
+            gl_Position = uProjectionMatrix * uModelViewMatrix *aPosition;
+            vTexCoord = aTexCoord;
+        }
+
+    </script>
+
+    <script id="fragment-shader_USB_per_frag" type="x-shader/x-fragment">
+        #version 300 es
+        precision mediump float;
+
+        uniform sampler2D uTextureMap;
+        in vec2 vTexCoord;
+
+        in vec4 vColor;
+        out vec4 fColor;
+
+        uniform float uShininess;
+        uniform float uLightState;
+        uniform vec4 uAmbientProduct, uDiffuseProduct, uSpecularProduct;
+
+        in vec3 N;
+        in vec3 E;
+
+        in vec3 L1;
+        in vec3 L2;
+        in vec3 L3;
+
+        vec4 diffuse_specular_components(vec3 N, vec3 E, vec3 L);
+
+        void main(){
+            vec4 light_1;
+            vec4 light_2;
+            vec4 light_3;
+
+            vec4 lights;
+
+            if(uLightState == 0.0){ //turn off the light
+                lights=vec4(0.0,0.0,0.0,1.0);
+            }
+            else{ //turn on
+                light_1 = diffuse_specular_components(N, E, L1);
+                light_2 = diffuse_specular_components(N, E, L2);
+                light_3 = diffuse_specular_components(N, E, L3);
+    
+                lights = light_1 + light_2 + light_3;
+            }
+
+            //ambient
+            vec4 ambient = uAmbientProduct;
+
+            vec4 l = ambient + lights;
+            l.a = 1.0;
+
+            fColor = l + texture(uTextureMap, vTexCoord);
+        }
+
+        vec4 diffuse_specular_components(vec3 N, vec3 E, vec3 L){
+            float Kd;
+            float Ks;
+            vec4  diffuse;
+            vec4 specular;
+        
+            //halfway vector
+            vec3 H = normalize(L + E);
+        
+            //diffuse
+            Kd = max(dot(L, N), 0.0);
+            diffuse = Kd*uDiffuseProduct;
+        
+            //specular
+            Ks = pow(max(dot(N, H), 0.0), uShininess );
+            specular = Ks * uSpecularProduct;
+        
+            if( dot(L, N) < 0.0 ) {specular = vec4(0.0, 0.0, 0.0, 1.0);}
+        
+            return diffuse + specular;
+        }
+    </script>
+    <!-- ------------------------------------------------------------------------------ -->
+
+    <!-- NEON -------------------------------------------------------------------------- -->
+    <script id="vertex-shader_NEON_per_frag" type="x-shader/x-vertex">
+        #version 300 es
+
+        in vec4 aPosition;
+        out vec4 aPos;
+
+        out vec4 vColor;
+
+        uniform mat4 uModelViewMatrix;
+        uniform mat4 uProjectionMatrix;
+
+        void main(){
+            gl_Position = uProjectionMatrix * uModelViewMatrix *aPosition;
+            aPos = aPosition;
+        }
+    </script>
+
+    <script id="fragment-shader_NEON_per_frag" type="x-shader/x-fragment">
+        #version 300 es
+        precision mediump float;
+
+        in vec4 vColor;
+        out vec4 fColor;
+
+        uniform vec4 uAmbientProduct;
+
+        uniform float ul1;
+        uniform float ul2;
+        uniform float ul3;
+
+        uniform float uLightState;
+        in vec4 aPos;
+
+        vec4 compute_emissive(vec4 pos){
+            float x = pos[2];
+
+            float o1 = abs(x-ul1);
+            float c1 = -pow(o1, 0.5) +1.0;
+
+            float o2 = abs(x-ul2);
+            float c2 = -pow(o2, 0.5) +1.0;
+
+            float o3 = abs(x-ul3);
+            float c3 = -pow(o3, 0.5) +1.0;
+
+            float c= c1+c2+c3;
+
+            return vec4(c,c,c,1);
+        }
+        void main(){
+            vec4 ambient = uAmbientProduct;
+            vec4 emissive =  compute_emissive(aPos);
+
+            // turn off the light
+            if(uLightState==0.0){emissive = vec4(0.0,0.0,0.0,1);}
+            fColor = emissive + ambient;
+        }
+    </script>
+    <!-- ------------------------------------------------------------------------------ -->
+    <!-- ################################################################################## -->
+
+
+
+<script src="../Common/initShaders.js"></script>
+<script src="../Common/MVnew.js"></script>
+<script src="Homework1.js"></script>
+
+
+<img id="texImage" src = "texture_1.jpg" hidden></img>
+
+</body>
+</html>
