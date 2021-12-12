@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html>
+
+<script id="vertex-shader" type="x-shader/x-vertex">
+    #version 300 es
+
+    in vec4 aPosition;
+    
+    uniform mat4 modelViewMatrix;
+    uniform mat4 projectionMatrix;
+    uniform vec4 uEyeLightPosition;
+    uniform mat3 uNormalMatrix;
+    
+    in vec2 aTexCoord;
+    out vec2 vTexCoord;
+    
+    in vec3 aNormal;
+    in vec3 aTangent;
+    out vec3 L_texture; /* light vector in texture-space coordinates */
+
+    // output used to compute the shading inside the fragment shader
+    out vec3 N;
+    out vec3 E;
+    out vec3 L;
+
+    void shading(){
+        // position of vertex in eye coordinates
+        vec3 pos = (modelViewMatrix * aPosition).xyz;
+
+        // normal of vertex in eye coordinates
+        vec4 NN = vec4(aNormal,0);
+        N = normalize((modelViewMatrix*NN).xyz);
+
+        // vector from eye position to vertex's position
+        // since we are in eye coordinates eye=0,0,0
+        E = normalize(-pos);
+
+        //light 
+        // vector from light source and the vertex
+        L = normalize(uEyeLightPosition.xyz - pos);
+    }
+
+    void bump_texture(){
+        vec3 eyePosition = (modelViewMatrix*aPosition).xyz;
+        vec3 eyeLightPos = uEyeLightPosition.xyz;
+    
+       /* normal, tangent and binormal in eye coordinates */        
+        vec3 N_texture = normalize(uNormalMatrix*aNormal);
+        vec3 T_texture  = normalize(uNormalMatrix*aTangent);
+        vec3 B_texture = cross(N_texture, T_texture);
+    
+        /* light vector in texture space */
+        L_texture.x = dot(T_texture, eyeLightPos-eyePosition);
+        L_texture.y = dot(B_texture, eyeLightPos-eyePosition);
+        L_texture.z = dot(N_texture, eyeLightPos-eyePosition);
+    
+        L_texture = normalize(L_texture);
+    }
+
+    
+    void main(){
+        vTexCoord = aTexCoord;
+        gl_Position = projectionMatrix * modelViewMatrix * aPosition;
+        bump_texture();
+        shading();
+    }
+</script>
+
+<script id="fragment-shader" type="x-shader/x-fragment">
+    #version 300 es
+    precision mediump float;
+
+    #define FLAG_LAND           0
+    #define FLAG_LEG_LOWER      1
+    #define FLAG_LEG_UPPER      2
+    #define FLAG_HEAD_FRONT     3
+    #define FLAG_TORSO          4
+    #define FLAG_TAIL           5
+    #define FLAG_FENCE          6
+    #define FLAG_LAND_UPPER     7
+    #define FLAG_HEAD           8
+
+    in vec2 vTexCoord;
+    
+    in vec3 N;
+    in vec3 E;
+    in vec3 L;
+    
+    uniform int U_flag_object;
+
+    uniform sampler2D uTextureMap_land;
+    uniform sampler2D uTextureMap_sheep_face;
+    uniform sampler2D uTextureMap_bump;
+
+    out vec4 fColor;
+
+    in vec3 L_texture;
+
+    // DIFFUSE COMPONENTS
+    vec4 diffuseProduct_land_upper = vec4(0.3, 0.1, 0, 1.0);
+    vec4 diffuseProduct_land = vec4(0.9, 0.0, 0.0, 1.0);
+    
+    vec4 diffuseProduct_torso = vec4(0.8, 0.8, 0.8, 1.0);
+
+    vec4 diffuseProduct_leg_upper = vec4(0.65, 0.65, 0.65, 1.0);
+    vec4 diffuseProduct_leg_lower = vec4(0.8, 0.8, 0.8, 1.0);
+
+    vec4 diffuseProduct_tail = vec4(0.7, 0.7, 0.7, 1.0);
+
+    vec4 diffuseProduct_head_front = vec4(0.85, 0.85, 0.85, 1.0);
+    vec4 diffuseProduct_head = vec4(0.85, 0.85, 0.85, 1.0);
+
+    vec4 diffuseProduct_fence = vec4(0.4, 0.2, 0, 1.0);
+
+
+    vec4 diffuse_term(vec4 diffuse_product){
+        float Kd;
+        vec4  diffuse;
+
+        //halfway vector
+        vec3 H = normalize(L + E);
+    
+        //diffuse
+        Kd = max(dot(L, N), 0.0);
+        diffuse = Kd*diffuse_product;
+    
+        return diffuse;
+    }
+
+    vec4 bump(vec4 diffuse_product){
+        vec4 N_texture = texture(uTextureMap_bump, vTexCoord);
+        vec3 NN_texture =  normalize(2.0*N_texture.xyz-1.0);
+        vec3 LL_texture = normalize(L_texture);
+        float Kd_texture = max(dot(NN_texture, LL_texture), 0.0);
+        return vec4(Kd_texture*diffuse_product.xyz, 1.0);
+    }
+    
+    void main(){
+        if     (U_flag_object == FLAG_LAND_UPPER)   fColor = vec4(0, 0.2, 0, 1.0) + diffuse_term(diffuseProduct_land_upper) + texture(uTextureMap_land, vTexCoord);
+        else if(U_flag_object == FLAG_LAND)         fColor = vec4(0.3, 0.1, 0, 1.0) + diffuse_term(diffuseProduct_land);
+        else if(U_flag_object == FLAG_LEG_UPPER)    fColor = vec4(0.5, 0.5, 0.5, 1.0) + bump(diffuseProduct_leg_upper);
+        else if(U_flag_object == FLAG_TORSO)        fColor = vec4(0.8, 0.8, 0.8, 1.0) + bump(diffuseProduct_torso);
+        else if(U_flag_object == FLAG_LEG_LOWER)    fColor = vec4(0.8, 0.8, 0.8, 1.0) + diffuse_term(diffuseProduct_leg_lower);
+        else if(U_flag_object == FLAG_TAIL)         fColor = vec4(0.6, 0.6, 0.6, 1.0) + bump(diffuseProduct_tail);
+        else if(U_flag_object == FLAG_HEAD_FRONT)   fColor = texture(uTextureMap_sheep_face, vTexCoord); 
+        else if(U_flag_object == FLAG_HEAD)         fColor = vec4(0.8, 0.8, 0.8, 1.0) + bump(diffuseProduct_head);
+        else if(U_flag_object == FLAG_FENCE)        fColor = vec4(0.4, 0.2, 0, 1.0) + diffuse_term(diffuseProduct_fence);
+        else                                        fColor = vec4(1.0, 0.0, 0.0, 1.0);
+    }
+</script>
+
+<script type="text/javascript" src="../Common/initShaders.js"></script>
+<script type="text/javascript" src="../Common/MVnew.js"></script>
+<script type="text/javascript" src="Matrix.js"></script>
+<script type="text/javascript" src="Splines.js"></script>
+<script type="text/javascript" src="Homework2.js"></script>
+
+
+<img id = "texture_land" src = "grass.png" hidden></img>
+<img id = "texture_sheep_face" src = "face.png" hidden></img>
+
+
+<button id = "Button_start">START</button>
+
+<div>
+    radius
+    0.05
+    <input id="radiusSlider" type="range" min="0.05" max="10" step="0.1" value="4" />
+    10
+</div>
+
+<div>
+    theta 
+    -180
+    <input id="thetaSlider" type="range" min="-180" max="180" step="5" value="-90" />
+    180
+</div>
+
+<div>
+    phi 
+    -180
+    <input id="phiSlider" type="range" min="-180" max="180" step="5" value="0" />
+    180
+</div>
+
+
+
+<body>
+<canvas id="gl-canvas" width="1024"" height="1024">
+Oops ... your browser doesn't support the HTML5 canvas element
+</canvas>
+</body>
+</html>
