@@ -11,7 +11,7 @@
 
 | Author                                   | Last Update | Grade HW1 | Grade HW2 |
 | ---------------------------------------- | ----------- | --------- | --------- |
-| [Sveva Pepe](https://github.com/pepes97) | 2020        | ---       | ---       |
+| [Sveva Pepe](https://github.com/pepes97) | 2020        | 4/5       | 5/5       |
 | Gioele Migno                             | 2021        | 4/5       | 5/5       |
 
 ## Final Project
